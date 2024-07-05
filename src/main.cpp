@@ -12,12 +12,17 @@
 
 int main(int argc, char** argv)
 {
+	XLog::GetInst().Init("NetProject");
 
-	XReactor reactor;
+	LOG(INFO)("NetProject Program start!");
+	/*XReactor reactor;
 	reactor.Init();
 	reactor.connectCreate(1994);
 
-	reactor.connectClose(NULL);
+	reactor.connectClose(NULL);*/
+	sleep(3);
+	LOG(INFO)("NetProject Program stop!");
+	XLog::GetInst().Destory();
 	return 0;
 }
 

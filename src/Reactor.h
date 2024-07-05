@@ -11,15 +11,7 @@
 # endif
 #include <sys/socket.h>
 #endif
-#include <spdlog.h>
-#ifndef LOG(level)
-#define LOG(level) spdlog::level
-#define TRACE trace
-#define INFO info
-#define WARN warn
-#define DEBUG debug
-#define ERROR error
-#endif // !LOG(level)
+#include "XLog.h"
 
 #include <event2/bufferevent.h>
 #include <event2/buffer.h>

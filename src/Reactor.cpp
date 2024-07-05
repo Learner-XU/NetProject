@@ -32,9 +32,8 @@ int64_t XReactor::Init() {
 	event_config_avoid_method(conf, "epoll");
     //≈‰÷√IOCP
 	event_config_set_flag(conf, EVENT_BASE_FLAG_STARTUP_IOCP);
-	evthread_use
 	
-	base = event_base_new_with_config();
+	base = event_base_new_with_config(conf);
 	if (!base) {
 		LOG(ERROR)("Could not initialize libevent!");
 		return 1;
@@ -87,6 +86,7 @@ void XReactor::listener_cb(evconnlistener* listener, evutil_socket_t fd,
 	bufferevent_disable(bev, EV_READ);
 	std::string message= "I get the data!";
 	bufferevent_write(bev, message.c_str(), message.size());
+	LOG(INFO)("Send message:{}\n",message);
 }
 
 void XReactor::conn_writecb(bufferevent* bev, void* user_data)
