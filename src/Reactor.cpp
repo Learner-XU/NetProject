@@ -4,7 +4,10 @@ XReactor::XReactor():conf(nullptr),base(nullptr), listener(nullptr), signal_even
 	Init();
 }
 XReactor::~XReactor() {
-
+	event_base_free(base);
+	if (m_thread.joinable()) {
+		m_thread.join();
+	}
 }
 
 int64_t XReactor::Init() {
@@ -31,7 +34,7 @@ int64_t XReactor::Init() {
 	//设置网络模型
 	event_config_avoid_method(conf, "epoll");
     //配置IOCP
-	event_config_set_flag(conf, EVENT_BASE_FLAG_STARTUP_IOCP);
+	//event_config_set_flag(conf, EVENT_BASE_FLAG_STARTUP_IOCP);
 	
 	base = event_base_new_with_config(conf);
 	if (!base) {
@@ -53,20 +56,37 @@ int64_t XReactor::connectCreate(int port) {
 		LOG(ERROR)("Could not create a listener!");
 		return 1;
 	}
+	LOG(INFO)("TCPServer create a listener success!");
+	//由于event_base_dispatch是一个loop循环，所以要创建线程来保证本方法继续执行
+	m_thread = std::thread(event_base_dispatch, base);
+	return 0;
+}
 
+int64_t XReactor::timerCreate() {
+	timeval tv = { 1,0 };
+	timer_event = evtimer_new(base, timer_cb, NULL);
+
+	if (!signal_event || event_add(signal_event, NULL) < 0) {
+		LOG(ERROR)("Could not create/add a signal event!");
+		return 1;
+	}
+}
+
+int64_t XReactor::signalCreate() {
 	signal_event = evsignal_new(base, SIGINT, signal_cb, (void*)base);
 
 	if (!signal_event || event_add(signal_event, NULL) < 0) {
 		LOG(ERROR)("Could not create/add a signal event!");
 		return 1;
 	}
-	event_base_dispatch(base);
-	return 0;
 }
 bool XReactor::connectClose(int handle) {
 	evconnlistener_free(listener);
+	
+}
+
+bool XReactor::signalClose() {
 	event_free(signal_event);
-	event_base_free(base);
 }
 
 void XReactor::listener_cb(evconnlistener* listener, evutil_socket_t fd,
@@ -120,4 +140,10 @@ void XReactor::signal_cb(evutil_socket_t sig, short events, void* user_data)
 	LOG(INFO)("Caught an interrupt signal; exiting cleanly in two seconds.\n");
 
 	event_base_loopexit(base, &delay);
+}
+
+void XReactor::timer_cb(evutil_socket_t sig, short events, void* user_data)
+{
+	LOG(INFO)("Timer reach.\n");
+
 }
