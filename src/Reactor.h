@@ -24,6 +24,8 @@ class XReactor {
 public:
 	XReactor();
 	~XReactor();
+	//所有event开始Loop
+	void Loop();
 private:
 	std::thread m_thread;
 	event_config* conf;
@@ -46,6 +48,7 @@ public:
 	int64_t signalCreate();
 	bool connectClose(int handle);
 	bool signalClose();
+	bool timerClose();
 
 	static void listener_cb(evconnlistener*, evutil_socket_t,sockaddr*, int socklen, void*);
 	static void conn_writecb(bufferevent*, void*);

@@ -19,11 +19,15 @@ int main(int argc, char** argv)
 	reactor.connectCreate(1994);
 	reactor.signalCreate();
 	reactor.timerCreate();
+	reactor.Loop();
 	
-	while (1) {
+	//while (1) 
+	{
 		sleep(3);
 	}
 	reactor.connectClose(NULL);
+	reactor.signalClose();
+	reactor.timerClose();
 	LOG(INFO)("NetProject Program stop!");
 	XLog::GetInst().Destory();
 	return 0;

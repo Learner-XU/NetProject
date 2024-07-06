@@ -57,19 +57,26 @@ int64_t XReactor::connectCreate(int port) {
 		return 1;
 	}
 	LOG(INFO)("TCPServer create a listener success!");
-	//由于event_base_dispatch是一个loop循环，所以要创建线程来保证本方法继续执行
-	m_thread = std::thread(event_base_dispatch, base);
 	return 0;
 }
 
+void XReactor::Loop() {
+	//由于event_base_dispatch是一个loop循环，所以要创建线程来保证本方法继续执行
+	m_thread = std::thread(event_base_dispatch, base);
+	return;
+}
+
+
+
 int64_t XReactor::timerCreate() {
 	timeval tv = { 1,0 };
-	timer_event = evtimer_new(base, timer_cb, NULL);
+	timer_event = event_new(base, -1, EV_PERSIST, timer_cb, base); 
 
-	if (!signal_event || event_add(signal_event, NULL) < 0) {
+	if (!timer_event || event_add(timer_event, &tv) < 0) {
 		LOG(ERROR)("Could not create/add a signal event!");
 		return 1;
 	}
+	return 0;
 }
 
 int64_t XReactor::signalCreate() {
@@ -87,6 +94,10 @@ bool XReactor::connectClose(int handle) {
 
 bool XReactor::signalClose() {
 	event_free(signal_event);
+}
+
+bool XReactor::timerClose() {
+	event_free(timer_event);
 }
 
 void XReactor::listener_cb(evconnlistener* listener, evutil_socket_t fd,
