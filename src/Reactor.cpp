@@ -82,8 +82,10 @@ int64_t XReactor::timerCreate() {
 }
 
 int64_t XReactor::signalCreate() {
-	signal_event = evsignal_new(base, SIGINT, signal_cb, (void*)base);
-
+	//持久事件
+	//signal_event = evsignal_new(base, SIGINT, signal_cb, (void*)base);
+	//非持久事件 只进入一次
+	signal_event = event_new(base, SIGTERM,EV_SIGNAL, signal_cb, event_self_cbarg());
 	if (!signal_event || event_add(signal_event, NULL) < 0) {
 		LOG(ERROR)("Could not create/add a signal event!");
 		return 1;
@@ -165,7 +167,7 @@ void XReactor::signal_cb(evutil_socket_t sig, short events, void* user_data)
 	struct event_base* base = static_cast<event_base*>(user_data);
 	struct timeval delay = { 2, 0 };
 
-	LOG(INFO)("Caught an interrupt signal; exiting cleanly in two seconds.\n");
+	LOG(INFO)("Caught an kill signal; exiting cleanly in two seconds.\n");
 
 	event_base_loopexit(base, &delay);
 }
