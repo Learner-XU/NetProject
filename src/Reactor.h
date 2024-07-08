@@ -31,9 +31,6 @@ private:
 	event_config* conf;
 	event_base* base;
 	evconnlistener* listener;
-	event* signal_event;
-	event* timer_event;
-
 	sockaddr_in sin = { 0 };
 
 
@@ -42,17 +39,8 @@ public:
 	int64_t Init();
 	//创建IO事件
 	int64_t connectCreate(int port);
-	//创建定时器事件
-	int64_t timerCreate();
-	//创建信号事件
-	int64_t signalCreate();
 	bool connectClose(int handle);
-	bool signalClose();
-	bool timerClose();
-
 	static void listener_cb(evconnlistener*, evutil_socket_t,sockaddr*, int socklen, void*);
 	static void conn_writecb(bufferevent*, void*);
 	static void conn_eventcb(bufferevent*, short, void*);
-	static void signal_cb(evutil_socket_t, short, void*);
-	static void timer_cb(evutil_socket_t sig, short events, void* user_data);
 };

@@ -1,6 +1,6 @@
 #include "Reactor.h"
 
-XReactor::XReactor():conf(nullptr),base(nullptr), listener(nullptr), signal_event(nullptr) {
+XReactor::XReactor():conf(nullptr),base(nullptr), listener(nullptr) {
 	Init();
 }
 XReactor::~XReactor() {
@@ -68,31 +68,6 @@ void XReactor::Loop() {
 }
 
 
-
-int64_t XReactor::timerCreate() {
-	timeval tv = { 1,0 };
-	timer_event = event_new(base, -1, EV_PERSIST, timer_cb, base); 
-
-	if (!timer_event || event_add(timer_event, &tv) < 0) {
-		LOG(ERROR)("Could not create/add a signal event!");
-		return 1;
-	}
-	LOG(INFO)("Add a timer event success!");
-	return 0;
-}
-
-int64_t XReactor::signalCreate() {
-	//持久事件
-	//signal_event = evsignal_new(base, SIGINT, signal_cb, (void*)base);
-	//非持久事件 只进入一次
-	signal_event = event_new(base, SIGTERM,EV_SIGNAL, signal_cb, event_self_cbarg());
-	if (!signal_event || event_add(signal_event, NULL) < 0) {
-		LOG(ERROR)("Could not create/add a signal event!");
-		return 1;
-	}
-	LOG(INFO)("Add a signal event success!");
-	return 0;
-}
 bool XReactor::connectClose(int handle) {
 	if (listener != nullptr) {
 		evconnlistener_free(listener);
@@ -103,21 +78,6 @@ bool XReactor::connectClose(int handle) {
 	
 }
 
-bool XReactor::signalClose() {
-	if (signal_event != nullptr) {
-		event_free(signal_event);
-		LOG(INFO)(" a signal event removed");
-	}
-	return true;
-}
-
-bool XReactor::timerClose() {
-	if (timer_event != nullptr) {
-		event_free(timer_event);
-		LOG(INFO)(" a timer event removed");
-	}
-	return true;
-}
 
 void XReactor::listener_cb(evconnlistener* listener, evutil_socket_t fd,
 	struct sockaddr* sa, int socklen, void* user_data)
@@ -162,18 +122,3 @@ void XReactor::conn_eventcb(bufferevent* bev, short events, void* user_data)
 	bufferevent_free(bev);
 }
 
-void XReactor::signal_cb(evutil_socket_t sig, short events, void* user_data)
-{
-	struct event_base* base = static_cast<event_base*>(user_data);
-	struct timeval delay = { 2, 0 };
-
-	LOG(INFO)("Caught an kill signal; exiting cleanly in two seconds.\n");
-
-	event_base_loopexit(base, &delay);
-}
-
-void XReactor::timer_cb(evutil_socket_t sig, short events, void* user_data)
-{
-	LOG(INFO)("Timer reach.\n");
-
-}

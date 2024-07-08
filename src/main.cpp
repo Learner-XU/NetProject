@@ -8,17 +8,21 @@
 
 
 #include "Reactor.h"
-
-
+#include "Timer.h"
+#include "SignalManager.h"
 int main(int argc, char** argv)
 {
 	XLog::GetInst().Init("NetProject");
 
 	LOG(INFO)("NetProject Program start!");
 	XReactor reactor;
+	Timer timer;
+	SignalManager signalManager;
 	reactor.connectCreate(1994);
-	reactor.signalCreate();
-	//reactor.timerCreate();
+	timer.Create();
+	timer.run();
+	signalManager.Create();
+	signalManager.run();
 	reactor.Loop();
 	
 	while (1) 
@@ -26,8 +30,8 @@ int main(int argc, char** argv)
 		sleep(3);
 	}
 	reactor.connectClose(NULL);
-	reactor.signalClose();
-	reactor.timerClose();
+	signalManager.Close();
+	timer.Close();
 	LOG(INFO)("NetProject Program stop!");
 	XLog::GetInst().Destory();
 	return 0;
