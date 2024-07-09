@@ -25,12 +25,15 @@ public:
 	XReactor();
 	~XReactor();
 	//所有event开始Loop
-	void Loop();
+	void run();
 private:
+	int nPort = 1994;
+	//缓冲区
+	bufferevent* pBufEv;
 	std::thread m_thread;
-	event_config* conf;
-	event_base* base;
-	evconnlistener* listener;
+	event_config* pConf;
+	event_base* pEventBase;
+	evconnlistener* pListener;
 	sockaddr_in sin = { 0 };
 
 
@@ -38,9 +41,14 @@ public:
 	//libevent 初始化
 	int64_t Init();
 	//创建IO事件
-	int64_t connectCreate(int port);
-	bool connectClose(int handle);
+	int64_t Create(int port);
+	//连接服务器
+	int64_t connect();
+	bool Close(int handle);
 	static void listener_cb(evconnlistener*, evutil_socket_t,sockaddr*, int socklen, void*);
-	static void conn_writecb(bufferevent*, void*);
+	static void conn_writecb(bufferevent* bev, void* user_data);
 	static void conn_eventcb(bufferevent*, short, void*);
+	static void read_callback(bufferevent* pBufEv, void* pArg);
+	static void write_callback(bufferevent* pBufEv, short sEvent,void* pArg);
+	static void event_callback(bufferevent* pBufEv, short sEvent, void* pArg);
 };

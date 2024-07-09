@@ -18,18 +18,19 @@ int main(int argc, char** argv)
 	XReactor reactor;
 	Timer timer;
 	SignalManager signalManager;
-	reactor.connectCreate(1994);
+	//reactor.Create(1994);
+	reactor.connect();
 	timer.Create();
 	timer.run();
 	signalManager.Create();
 	signalManager.run();
-	reactor.Loop();
+	reactor.run();
 	
 	while (1) 
 	{
 		sleep(3);
 	}
-	reactor.connectClose(NULL);
+	reactor.Close(NULL);
 	signalManager.Close();
 	timer.Close();
 	LOG(INFO)("NetProject Program stop!");

@@ -1,13 +1,13 @@
 #include "SignalManager.h"
 
-SignalManager::SignalManager():base(nullptr), signal_event(nullptr)
+SignalManager::SignalManager():pEventBase(nullptr), signal_event(nullptr)
 {
 	Init();
 }
 
 SignalManager::~SignalManager()
 {
-	event_base_free(base);
+	event_base_free(pEventBase);
 	if (m_thread.joinable()) {
 		m_thread.join();
 	}
@@ -15,7 +15,7 @@ SignalManager::~SignalManager()
 
 int64_t SignalManager::Init()
 {
-	base = event_base_new();
+	pEventBase = event_base_new();
 	return 0;
 }
 
@@ -24,7 +24,7 @@ int64_t SignalManager::Create()
 	//持久事件
 	//signal_event = evsignal_new(base, SIGINT, signal_cb, (void*)base);
 	//非持久事件 只进入一次
-	signal_event = event_new(base, SIGTERM, EV_SIGNAL, signal_cb, event_self_cbarg());
+	signal_event = event_new(pEventBase, SIGTERM, EV_SIGNAL, signal_cb, event_self_cbarg());
 	if (!signal_event || event_add(signal_event, NULL) < 0) {
 		LOG(ERROR)("Could not create/add a signal event!");
 		return 1;
@@ -45,7 +45,7 @@ bool SignalManager::Close()
 void SignalManager::run()
 {
 	//由于event_base_dispatch是一个loop循环，所以要创建线程来保证本方法继续执行
-	m_thread = std::thread(event_base_dispatch, base);
+	m_thread = std::thread(event_base_dispatch, pEventBase);
 	LOG(INFO)("signal events start Looping!");
 	return;
 }

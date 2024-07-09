@@ -1,58 +1,76 @@
 #include "Reactor.h"
 
-XReactor::XReactor():conf(nullptr),base(nullptr), listener(nullptr) {
+XReactor::XReactor():pConf(nullptr),pEventBase(nullptr), pListener(nullptr) {
 	Init();
 }
 XReactor::~XReactor() {
-	event_base_free(base);
+	event_base_free(pEventBase);
 	if (m_thread.joinable()) {
 		m_thread.join();
 	}
 }
 
 int64_t XReactor::Init() {
-	LOG(INFO)("start initialize libevent!");
-#ifdef _WIN32
-	WSADATA wsa_data;
-	WSAStartup(0x0201, &wsa_data);
-#endif
+	if (pEventBase!=nullptr) {
+		LOG(INFO)("libevent has init!");
+		if (pBufEv != nullptr) {
+			LOG(INFO)("bufferevent has init!");
+		}
+		else {
+			pBufEv= bufferevent_socket_new(pEventBase, -1, 0);
+			LOG(INFO)("bufferevent is init!");
+		} 
+		
+		return 0;
+	}
+	
 	//忽略管道信号，防止发送数据给已关闭的socket导致程序dump
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
 		return 1;
 	}
 	//创建配置上下文
-	conf = event_config_new();
+	pConf = event_config_new();
 
-	//显示支持的网络模式
-	const char** methods=event_get_supported_methods();
-	LOG(INFO)("XReactor support methods:!");
-	for (int i = 0; methods[i] != NULL; i++) {
-		LOG(INFO)("({}): {}",i,methods[i]);
-	}
 	//设置特征
-	event_config_require_features(conf, EV_FEATURE_FDS);
+	event_config_require_features(pConf, EV_FEATURE_FDS);
 	//设置网络模型
-	event_config_avoid_method(conf, "epoll");
+	event_config_avoid_method(pConf, "epoll");
     //配置IOCP
 	//event_config_set_flag(conf, EVENT_BASE_FLAG_STARTUP_IOCP);
 	
-	base = event_base_new_with_config(conf);
-	if (!base) {
+	pEventBase = event_base_new_with_config(pConf);
+	if (pEventBase==nullptr) {
 		LOG(ERROR)("Could not initialize libevent!");
 		return 1;
 	}
+	else {
+		LOG(INFO)("libevent is init!");
+	}
+	pBufEv = bufferevent_socket_new(pEventBase, -1, 0);
+	if (pBufEv == nullptr) {
+		LOG(ERROR)("Could not initialize bufferevent!");
+		return 1;
+	}
+	else {
+		LOG(INFO)("bufferevent is init!");
+	}
+	LOG(INFO)("Reactor is init!");
 	return 0;
 }
-int64_t XReactor::connectCreate(int port) {
+int64_t XReactor::Create(int port) {
+	if (pListener!=nullptr) {
+		evconnlistener_free(pListener);
+		LOG(INFO)("last listener is free!");
+	}
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(port);
 
-	listener = evconnlistener_new_bind(base, listener_cb, (void*)base,
+	pListener = evconnlistener_new_bind(pEventBase, listener_cb, (void*)pEventBase,
 		LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1,
 		(sockaddr*)&sin,
 		sizeof(sin));
 
-	if (!listener) {
+	if (!pListener) {
 		LOG(ERROR)("Could not create a listener!");
 		return 1;
 	}
@@ -60,17 +78,32 @@ int64_t XReactor::connectCreate(int port) {
 	return 0;
 }
 
-void XReactor::Loop() {
+void XReactor::run() {
 	//由于event_base_dispatch是一个loop循环，所以要创建线程来保证本方法继续执行
-	m_thread = std::thread(event_base_dispatch, base);
+	m_thread = std::thread(event_base_dispatch, pEventBase);
 	LOG(INFO)("All events start Looping!");
 	return;
 }
 
 
-bool XReactor::connectClose(int handle) {
-	if (listener != nullptr) {
-		evconnlistener_free(listener);
+int64_t XReactor::connect()
+{
+	//设置回调函数, 及回调函数的参数
+	bufferevent_setcb(pBufEv, read_callback, conn_writecb, event_callback, NULL);
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_family = AF_INET;
+	sin.sin_port = htons(nPort);
+
+	//连接服务器
+	if (bufferevent_socket_connect(pBufEv, (struct sockaddr*)&sin, sizeof(sin)) < 0) {
+		return 0;
+	}
+	return 1;
+}
+
+bool XReactor::Close(int handle) {
+	if (pListener != nullptr) {
+		evconnlistener_free(pListener);
 		LOG(INFO)(" a listener removed");
 	}
 	return true;
@@ -79,16 +112,16 @@ bool XReactor::connectClose(int handle) {
 }
 
 
-void XReactor::listener_cb(evconnlistener* listener, evutil_socket_t fd,
+void XReactor::listener_cb(evconnlistener* pListener, evutil_socket_t fd,
 	struct sockaddr* sa, int socklen, void* user_data)
 {
-	struct event_base* base = static_cast<event_base*>(user_data);
+	struct event_base* pEventBase = static_cast<event_base*>(user_data);
 	struct bufferevent* bev;
 
-	bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
+	bev = bufferevent_socket_new(pEventBase, fd, BEV_OPT_CLOSE_ON_FREE);
 	if (!bev) {
 		LOG(ERROR)("Error constructing bufferevent!");
-		event_base_loopbreak(base);
+		event_base_loopbreak(pEventBase);
 		return;
 	}
 	bufferevent_setcb(bev, NULL, conn_writecb, conn_eventcb, NULL);
@@ -99,7 +132,7 @@ void XReactor::listener_cb(evconnlistener* listener, evutil_socket_t fd,
 	LOG(INFO)("Send message:{}\n",message);
 }
 
-void XReactor::conn_writecb(bufferevent* bev, void* user_data)
+void XReactor::conn_writecb(bufferevent* bev,  void* user_data)
 {
 	evbuffer* output = bufferevent_get_output(bev);
 	if (evbuffer_get_length(output) == 0) {
@@ -122,3 +155,30 @@ void XReactor::conn_eventcb(bufferevent* bev, short events, void* user_data)
 	bufferevent_free(bev);
 }
 
+//读回调处理
+void XReactor::read_callback(bufferevent* pBufEv, void* pArg) {
+	//获取输入缓存
+	evbuffer* pInput = bufferevent_get_input(pBufEv);
+	//获取输入缓存数据的长度
+	int nLen = evbuffer_get_length(pInput);
+	//获取数据的地址
+	const char* pBody = (const char*)evbuffer_pullup(pInput, nLen);
+	//进行数据处理
+	//写到输出缓存,由bufferevent的可写事件读取并通过fd发送
+	//bufferevent_write(pBufEv, pResponse, nResLen);
+	return;
+}
+
+//写回调处理
+void XReactor::write_callback(bufferevent* pBufEv,short sEvent, void* pArg) {
+	return;
+}
+
+//事件回调处理
+void XReactor::event_callback(bufferevent* pBufEv, short sEvent, void* pArg) {
+	//成功连接通知事件
+	if (BEV_EVENT_CONNECTED == sEvent) {
+		bufferevent_enable(pBufEv, EV_READ);
+	}
+	return;
+}

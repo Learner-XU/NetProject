@@ -20,7 +20,7 @@
 class SignalManager
 {
 	std::thread m_thread;
-	event_base* base;
+	event_base* pEventBase;
 	event* signal_event;
 
 public:

@@ -20,7 +20,7 @@
 class Timer
 {
 	std::thread m_thread;
-	event_base* base;
+	event_base* pEventBase;
 	event* timer_event;
 
 public:
