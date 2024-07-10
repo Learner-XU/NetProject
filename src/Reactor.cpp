@@ -57,13 +57,13 @@ int64_t XReactor::Init() {
 	LOG(INFO)("Reactor is init!");
 	return 0;
 }
-int64_t XReactor::Create(int port) {
+int64_t XReactor::Create() {
 	if (pListener!=nullptr) {
 		evconnlistener_free(pListener);
 		LOG(INFO)("last listener is free!");
 	}
 	sin.sin_family = AF_INET;
-	sin.sin_port = htons(port);
+	sin.sin_port = htons(nPort);
 
 	pListener = evconnlistener_new_bind(pEventBase, listener_cb, (void*)pEventBase,
 		LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1,
@@ -86,19 +86,22 @@ void XReactor::run() {
 }
 
 
-int64_t XReactor::connect()
+int64_t XReactor::connect(int port)
 {
 	//设置回调函数, 及回调函数的参数
 	bufferevent_setcb(pBufEv, read_callback, conn_writecb, event_callback, NULL);
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = inet_addr("172.17.201.213");
 	sin.sin_port = htons(nPort);
 
 	//连接服务器
-	if (bufferevent_socket_connect(pBufEv, (struct sockaddr*)&sin, sizeof(sin)) < 0) {
-		return 0;
+	if (bufferevent_socket_connect(pBufEv, (struct sockaddr*)&sin, sizeof(sin)) ==-1) {
+		LOG(ERROR)("connect server failed!");
+		return -1;
 	}
-	return 1;
+	LOG(INFO)("connect server success!");
+	return 0;
 }
 
 bool XReactor::Close(int handle) {
@@ -164,6 +167,8 @@ void XReactor::read_callback(bufferevent* pBufEv, void* pArg) {
 	//获取数据的地址
 	const char* pBody = (const char*)evbuffer_pullup(pInput, nLen);
 	//进行数据处理
+	std::string recv(pBody);
+	LOG(INFO)("Client recv:{}", pBody);
 	//写到输出缓存,由bufferevent的可写事件读取并通过fd发送
 	//bufferevent_write(pBufEv, pResponse, nResLen);
 	return;

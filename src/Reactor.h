@@ -41,9 +41,9 @@ public:
 	//libevent 初始化
 	int64_t Init();
 	//创建IO事件
-	int64_t Create(int port);
+	int64_t Create();
 	//连接服务器
-	int64_t connect();
+	int64_t connect(int port);
 	bool Close(int handle);
 	static void listener_cb(evconnlistener*, evutil_socket_t,sockaddr*, int socklen, void*);
 	static void conn_writecb(bufferevent* bev, void* user_data);

@@ -16,15 +16,20 @@ int main(int argc, char** argv)
 
 	LOG(INFO)("NetProject Program start!");
 	XReactor reactor;
+	
 	Timer timer;
 	SignalManager signalManager;
-	//reactor.Create(1994);
-	reactor.connect();
-	timer.Create();
-	timer.run();
+	reactor.Create();
+	
+	//timer.Create();
+	//timer.run();
 	signalManager.Create();
 	signalManager.run();
 	reactor.run();
+
+	XReactor client;
+	client.connect(1994);
+	client.run();
 	
 	while (1) 
 	{
