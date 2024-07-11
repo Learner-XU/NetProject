@@ -6,14 +6,14 @@
   Where possible, it exits cleanly in response to a SIGINT (ctrl-c).
 */
 
-
+#include "HttpServer.h"
 #include "Reactor.h"
 #include "Timer.h"
 #include "SignalManager.h"
 int main(int argc, char** argv)
 {
 	XLog::GetInst().Init("NetProject");
-
+	/*
 	LOG(INFO)("NetProject Program start!");
 	XReactor reactor;
 	
@@ -21,8 +21,8 @@ int main(int argc, char** argv)
 	SignalManager signalManager;
 	reactor.Create();
 	
-	//timer.Create();
-	//timer.run();
+	timer.Create();
+	timer.run();
 	signalManager.Create();
 	signalManager.run();
 	reactor.run();
@@ -30,14 +30,21 @@ int main(int argc, char** argv)
 	XReactor client;
 	client.connect(1994);
 	client.run();
-	
+	*/
+
+	HttpServer httpServer;
+	httpServer.run();
+
 	while (1) 
 	{
 		sleep(3);
 	}
+	/*
 	reactor.Close(NULL);
 	signalManager.Close();
 	timer.Close();
+	*/
+	
 	LOG(INFO)("NetProject Program stop!");
 	XLog::GetInst().Destory();
 	return 0;
