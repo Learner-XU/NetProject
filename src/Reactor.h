@@ -1,5 +1,6 @@
 #pragma once
 #include <string.h>
+#include <vector>
 #include <errno.h>
 #include <stdio.h>
 #include <signal.h>
@@ -27,6 +28,8 @@ public:
 	//所有event开始Loop
 	void run();
 private:
+	//v_message加锁
+	std::mutex m_mtx;
 	int nPort = 1994;
 	//缓冲区
 	bufferevent* pBufEv;
@@ -35,17 +38,28 @@ private:
 	event_base* pEventBase;
 	evconnlistener* pListener;
 	sockaddr_in sin = { 0 };
-
+	std::vector<std::string> v_message;
+	int count = 0;
 
 public:
 	//libevent 初始化
 	int64_t Init();
 	//创建IO事件
-	int64_t Create();
+	int64_t CreateServer();
 	//连接服务器
-	int64_t connect(int port);
-	bool Close(int handle);
-	static void listener_cb(evconnlistener*, evutil_socket_t,sockaddr*, int socklen, void*);
+	int64_t connectServer(int port);
+	virtual void GetData(const char* pBody,int nLen) {
+		std::string recv(pBody);
+		LOG(INFO)("Client {},recv:{}", (void*)pEventBase, recv);
+	};
+	virtual void writeData() {
+		count++;
+		std::unique_lock<std::mutex> mtx(m_mtx);
+		v_message.emplace_back("send count " + std::to_string(count)+"\n");
+	};
+	void SendData();
+	bool Close();
+	static void listener_cb(evconnlistener* pListener, evutil_socket_t fd, sockaddr* sa, int socklen, void* user_data);
 	static void conn_writecb(bufferevent* bev, void* user_data);
 	static void conn_eventcb(bufferevent*, short, void*);
 	static void read_callback(bufferevent* pBufEv, void* pArg);

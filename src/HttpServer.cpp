@@ -32,7 +32,7 @@ HttpServer::HttpServer()
 		evhttp_set_max_body_size(http, o.max_body_size);
 	handle = evhttp_bind_socket_with_handle(http, o.bind, o.port);
 	if (!handle) {
-		LOG(ERROR)("couldn't bind to %s:%d. Exiting.", o.bind, o.port);
+		LOG(ERROR)("couldn't bind to {}:{}. Exiting.", o.bind, o.port);
 		ret = 1;
 		return;
 	}

@@ -44,14 +44,14 @@
 #include "XLog.h"
 
 struct options {
-	int port=1994;
+	int port=8080;
 	int iocp;
 	int verbose;
 	int max_body_size=10000;
 
 	int unlink;
 	const char* unixsock;
-	const char* bind="172.0.0.1";
+	const char* bind="0.0.0.0";
 	const char* docroot;
 };
 

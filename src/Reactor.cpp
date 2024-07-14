@@ -1,10 +1,9 @@
 #include "Reactor.h"
-
 XReactor::XReactor():pConf(nullptr),pEventBase(nullptr), pListener(nullptr) {
 	Init();
 }
 XReactor::~XReactor() {
-	event_base_free(pEventBase);
+	Close();
 	if (m_thread.joinable()) {
 		m_thread.join();
 	}
@@ -32,11 +31,9 @@ int64_t XReactor::Init() {
 	pConf = event_config_new();
 
 	//设置特征
-	event_config_require_features(pConf, EV_FEATURE_FDS);
+	//event_config_require_features(pConf, EV_FEATURE_FDS);
 	//设置网络模型
 	event_config_avoid_method(pConf, "epoll");
-    //配置IOCP
-	//event_config_set_flag(conf, EVENT_BASE_FLAG_STARTUP_IOCP);
 	
 	pEventBase = event_base_new_with_config(pConf);
 	if (pEventBase==nullptr) {
@@ -46,6 +43,11 @@ int64_t XReactor::Init() {
 	else {
 		LOG(INFO)("libevent is init!");
 	}
+	event_config_free(pConf);
+	LOG(INFO)("Reactor is init!");
+	return 0;
+}
+int64_t XReactor::CreateServer() {
 	pBufEv = bufferevent_socket_new(pEventBase, -1, 0);
 	if (pBufEv == nullptr) {
 		LOG(ERROR)("Could not initialize bufferevent!");
@@ -54,10 +56,6 @@ int64_t XReactor::Init() {
 	else {
 		LOG(INFO)("bufferevent is init!");
 	}
-	LOG(INFO)("Reactor is init!");
-	return 0;
-}
-int64_t XReactor::Create() {
 	if (pListener!=nullptr) {
 		evconnlistener_free(pListener);
 		LOG(INFO)("last listener is free!");
@@ -65,7 +63,7 @@ int64_t XReactor::Create() {
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(nPort);
 
-	pListener = evconnlistener_new_bind(pEventBase, listener_cb, (void*)pEventBase,
+	pListener = evconnlistener_new_bind(pEventBase, listener_cb, (void*)this,
 		LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1,
 		(sockaddr*)&sin,
 		sizeof(sin));
@@ -86,13 +84,21 @@ void XReactor::run() {
 }
 
 
-int64_t XReactor::connect(int port)
+int64_t XReactor::connectServer(int port)
 {
+	pBufEv = bufferevent_socket_new(pEventBase, -1, 0);
+	if (pBufEv == nullptr) {
+		LOG(ERROR)("Could not initialize bufferevent!");
+		return 1;
+	}
+	else {
+		LOG(INFO)("bufferevent is init!");
+	}
 	//设置回调函数, 及回调函数的参数
-	bufferevent_setcb(pBufEv, read_callback, conn_writecb, event_callback, NULL);
+	bufferevent_setcb(pBufEv, read_callback, NULL, event_callback, this);
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = inet_addr("172.17.201.213");
+	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(nPort);
 
 	//连接服务器
@@ -104,11 +110,19 @@ int64_t XReactor::connect(int port)
 	return 0;
 }
 
-bool XReactor::Close(int handle) {
+bool XReactor::Close() {
 	if (pListener != nullptr) {
 		evconnlistener_free(pListener);
-		LOG(INFO)(" a listener removed");
 	}
+	if (pBufEv != nullptr) {
+		bufferevent_free(pBufEv);
+	}
+	if (pConf!=nullptr) {
+		event_config_free(pConf);
+	}
+	if (pEventBase != nullptr) {
+		event_base_free(pEventBase);
+	}	
 	return true;
 	
 	
@@ -118,30 +132,49 @@ bool XReactor::Close(int handle) {
 void XReactor::listener_cb(evconnlistener* pListener, evutil_socket_t fd,
 	struct sockaddr* sa, int socklen, void* user_data)
 {
-	struct event_base* pEventBase = static_cast<event_base*>(user_data);
-	struct bufferevent* bev;
+	event_base* pEventBase = static_cast<XReactor*>(user_data)->pEventBase;
+	bufferevent* bev=nullptr;
 
 	bev = bufferevent_socket_new(pEventBase, fd, BEV_OPT_CLOSE_ON_FREE);
 	if (!bev) {
 		LOG(ERROR)("Error constructing bufferevent!");
-		event_base_loopbreak(pEventBase);
+		//event_base_loopbreak(pEventBase);
 		return;
 	}
-	bufferevent_setcb(bev, NULL, conn_writecb, conn_eventcb, NULL);
+	bufferevent_setcb(bev, NULL, conn_writecb, conn_eventcb, user_data);
+	// 设置写操作的低水位为1024字节
+	bufferevent_setwatermark(bev, EV_WRITE,0 ,0);
+
 	bufferevent_enable(bev, EV_WRITE);
 	bufferevent_disable(bev, EV_READ);
-	std::string message= "I get the data!";
-	bufferevent_write(bev, message.c_str(), message.size());
-	LOG(INFO)("Send message:{}\n",message);
+	
 }
 
 void XReactor::conn_writecb(bufferevent* bev,  void* user_data)
 {
-	evbuffer* output = bufferevent_get_output(bev);
-	if (evbuffer_get_length(output) == 0) {
-		LOG(INFO)("flushed answer\n");
-		bufferevent_free(bev);
+	//TODO
+	XReactor* pthis = static_cast<XReactor*>(user_data);
+	{
+		std::unique_lock<std::mutex> mtx(pthis->m_mtx);
+		if (pthis->v_message.size()) {
+			for (auto& item : pthis->v_message) {
+				bufferevent_write(bev, item.c_str(), item.size());
+			}
+		}
+		pthis->v_message.clear();
 	}
+
+	
+}
+
+void XReactor::SendData() {
+	std::unique_lock<std::mutex> mtx(m_mtx);
+	if (v_message.size()) {
+		for (auto& item : v_message) {
+			bufferevent_write(pBufEv, item.c_str(), item.size());
+		}
+	}
+	v_message.clear();
 }
 
 void XReactor::conn_eventcb(bufferevent* bev, short events, void* user_data)
@@ -160,6 +193,7 @@ void XReactor::conn_eventcb(bufferevent* bev, short events, void* user_data)
 
 //读回调处理
 void XReactor::read_callback(bufferevent* pBufEv, void* pArg) {
+	XReactor* pthis = (XReactor*)pArg;
 	//获取输入缓存
 	evbuffer* pInput = bufferevent_get_input(pBufEv);
 	//获取输入缓存数据的长度
@@ -167,8 +201,8 @@ void XReactor::read_callback(bufferevent* pBufEv, void* pArg) {
 	//获取数据的地址
 	const char* pBody = (const char*)evbuffer_pullup(pInput, nLen);
 	//进行数据处理
-	std::string recv(pBody);
-	LOG(INFO)("Client recv:{}", pBody);
+	pthis->GetData(pBody,nLen);
+	evbuffer_drain(pInput, nLen);
 	//写到输出缓存,由bufferevent的可写事件读取并通过fd发送
 	//bufferevent_write(pBufEv, pResponse, nResLen);
 	return;

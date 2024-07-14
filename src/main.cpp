@@ -32,12 +32,25 @@ int main(int argc, char** argv)
 	client.run();
 	*/
 
-	HttpServer httpServer;
-	httpServer.run();
+	/*HttpServer httpServer;
+	httpServer.run();*/
+	XReactor server;
+	server.CreateServer();
+	server.run();
+	server.writeData();
+	XReactor client;
+	client.connectServer(1994);
+	client.run();
+	XReactor client1;
+	client1.connectServer(1994);
+	sleep(3);
+	client1.run();
 
 	while (1) 
 	{
-		sleep(3);
+		server.writeData();
+		sleep(1);
+		server.SendData();
 	}
 	/*
 	reactor.Close(NULL);
