@@ -31,8 +31,10 @@ private:
 	//v_message加锁
 	std::mutex m_mtx;
 	int nPort = 1994;
-	//缓冲区
-	bufferevent* pBufEv;
+	//客户端缓冲区
+	std::vector<bufferevent*> p_ClientBufEv;
+	//服务端缓冲区
+	std::vector<bufferevent*> p_ServerBufEv;
 	std::thread m_thread;
 	event_config* pConf;
 	event_base* pEventBase;
@@ -53,9 +55,16 @@ public:
 		LOG(INFO)("Client {},recv:{}", (void*)pEventBase, recv);
 	};
 	virtual void writeData() {
-		count++;
 		std::unique_lock<std::mutex> mtx(m_mtx);
-		v_message.emplace_back("send count " + std::to_string(count)+"\n");
+		count++;
+		//v_message.emplace_back("send count " + std::to_string(count)+"\n");
+		std::string item = "send count " + std::to_string(count) + "\n";
+		for (auto& pBufEv : p_ServerBufEv) {
+			if (pBufEv) {
+				bufferevent_write(pBufEv, item.c_str(), item.size());
+			}
+		}
+		
 	};
 	void SendData();
 	bool Close();

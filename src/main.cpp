@@ -37,20 +37,29 @@ int main(int argc, char** argv)
 	XReactor server;
 	server.CreateServer();
 	server.run();
-	server.writeData();
+	//server.writeData();
 	XReactor client;
 	client.connectServer(1994);
 	client.run();
-	XReactor client1;
+	/*XReactor client1;
 	client1.connectServer(1994);
 	sleep(3);
-	client1.run();
-
+	client1.run();*/
+	/*for (int i = 0; i < 10; i++) {
+		std::thread thd = std::thread([ & server]() {
+			while (1) {
+				server.writeData();
+				sleep(1);
+			}
+			
+		});
+		thd.detach();
+	}*/
+	
 	while (1) 
 	{
-		server.writeData();
 		sleep(1);
-		server.SendData();
+		server.writeData();
 	}
 	/*
 	reactor.Close(NULL);
