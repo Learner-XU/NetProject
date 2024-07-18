@@ -19,15 +19,17 @@ int64_t XReactor::Init() {
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
 		return 1;
 	}
+
 	//创建配置上下文
-	pConf = event_config_new();
+	//pConf = event_config_new();
 
 	//设置特征
 	//event_config_require_features(pConf, EV_FEATURE_FDS);
 	//设置网络模型
-	event_config_avoid_method(pConf, "select");
+	//event_config_avoid_method(pConf, "select");
 	
-	pEventBase = event_base_new_with_config(pConf);
+	//pEventBase = event_base_new_with_config(pConf);
+	pEventBase = event_base_new();
 	if (pEventBase==nullptr) {
 		LOG(ERROR)("Could not initialize libevent!");
 		return 1;
@@ -35,7 +37,8 @@ int64_t XReactor::Init() {
 	else {
 		LOG(INFO)("libevent is init!");
 	}
-	event_config_free(pConf);
+	//event_config_free(pConf);
+
 	LOG(INFO)("Reactor is init!");
 	return 0;
 }
@@ -92,7 +95,7 @@ int64_t XReactor::connectServer(int port)
 		LOG(ERROR)("connect server failed!");
 		return -1;
 	}
-	bufferevent_enable(pBufEv, EV_READ | EV_PERSIST);
+	bufferevent_enable(pBufEv, EV_READ);
 	LOG(INFO)("connect server success!");
 	return 0;
 }
@@ -140,10 +143,7 @@ void XReactor::listener_cb(evconnlistener* pListener, evutil_socket_t fd,
 		return;
 	}
 	bufferevent_setcb(pBufEv, NULL, conn_writecb, conn_eventcb, user_data);
-	// 设置写操作的低水位为1024字节
-	//bufferevent_setwatermark(pBufEv, EV_WRITE,0 ,0);
-
-	bufferevent_enable(pBufEv, EV_WRITE| EV_PERSIST);
+	bufferevent_enable(pBufEv, EV_WRITE);
 	
 }
 
@@ -165,15 +165,6 @@ void XReactor::conn_writecb(bufferevent* bev,  void* user_data)
 	
 }
 
-void XReactor::SendData() {
-	std::unique_lock<std::mutex> mtx(m_mtx);
-	if (v_message.size()) {
-		for (auto& item : v_message) {
-			//bufferevent_write(pBufEv, item.c_str(), item.size());
-		}
-	}
-	v_message.clear();
-}
 
 void XReactor::conn_eventcb(bufferevent* bev, short events, void* user_data)
 {

@@ -57,16 +57,18 @@ public:
 	virtual void writeData() {
 		std::unique_lock<std::mutex> mtx(m_mtx);
 		count++;
-		//v_message.emplace_back("send count " + std::to_string(count)+"\n");
-		std::string item = "send count " + std::to_string(count) + "\n";
-		for (auto& pBufEv : p_ServerBufEv) {
-			if (pBufEv) {
-				bufferevent_write(pBufEv, item.c_str(), item.size());
+		v_message.emplace_back("send count " + std::to_string(count)+"\n");
+	};
+	void SendData() {
+		std::unique_lock<std::mutex> mtx(m_mtx);
+		if (v_message.size()) {
+			for (auto& item :v_message) {
+				for(auto& p_con: p_ServerBufEv)
+					bufferevent_write(p_con, item.c_str(), item.size());
 			}
 		}
-		
-	};
-	void SendData();
+		v_message.clear();
+	}
 	bool Close();
 	static void listener_cb(evconnlistener* pListener, evutil_socket_t fd, sockaddr* sa, int socklen, void* user_data);
 	static void conn_writecb(bufferevent* bev, void* user_data);
